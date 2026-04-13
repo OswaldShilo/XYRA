@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+pandas
+numpy
+prophet
+scikit-learn
+scipy
+statsmodels
+matplotlib
+seaborn
+plotly
+requests
+python-multipart
+openpyxl
+apscheduler
+python-dotenv
+pydantic
