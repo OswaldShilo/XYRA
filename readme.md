@@ -79,7 +79,7 @@ Layer 7   →  Continuous Learning              Manager feedback loop · accurac
 
 <!-- Add your system architecture image below -->
 
-![XYRA System Architecture](SystemArchitectur.png)
+![XYRA System Architecture](SystemArchitecture.png)
 
 ---
 
