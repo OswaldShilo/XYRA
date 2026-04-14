@@ -1,0 +1,12 @@
+[
+  {
+    "feedback_id": "FB_20260413_203836",
+    "timestamp": "2026-04-13T20:38:36.143003",
+    "product_id": "P0001",
+    "recommendation_id": "TEST_001",
+    "accepted": true,
+    "actual_qty_ordered": 100,
+    "category": "Groceries",
+    "manager_note": "Test feedback"
+  }
+]
