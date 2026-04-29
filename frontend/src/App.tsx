@@ -3,13 +3,18 @@ import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-ro
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowRight, Paperclip, Cloud, Sun, MapPin, Calendar,
-  TrendingUp, Package, AlertTriangle, Wind, Eye, EyeOff, X
+  TrendingUp, Package, AlertTriangle, Wind, Eye, EyeOff, X,
+  Radio,
 } from 'lucide-react';
 import { cn } from './lib/utils';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine, PieChart, Pie
 } from 'recharts';
+import ModeSelectPage from './pages/ModeSelect';
+import { RiskHeatmap } from './components/ui/RiskHeatmap';
+import { SignalBreakdown } from './components/ui/SignalBreakdown';
+import { useWebSocket } from './hooks/useWebSocket';
 
 // ─── Root Router ────────────────────────────────────────────────────────────
 
@@ -22,6 +27,7 @@ export default function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<AuthPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
+          <Route path="/mode-select" element={<ModeSelectPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
         </Routes>
       </div>
@@ -332,7 +338,13 @@ function OnboardingPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const navigate = useNavigate();
 
-  const nextStep = () => setStep(s => s + 1);
+  const nextStep = () => {
+    if (step === 4) {
+      navigate('/mode-select', { state: { name, profileType, location: storeLocation, categories } });
+      return;
+    }
+    setStep(s => s + 1);
+  };
   const prevStep = () => setStep(s => Math.max(1, s - 1));
 
   return (
@@ -354,12 +366,10 @@ function OnboardingPage() {
             {step === 2 && 'What is the name of your store?'}
             {step === 3 && 'Where are you located?'}
             {step === 4 && 'What categories do you sell?'}
-            {step === 5 && 'Provide your historical data.'}
-            {step === 6 && 'Synthesizing your insights.'}
           </h2>
         </div>
         <div className="text-xs font-medium text-gray-500 uppercase tracking-widest hidden md:block">
-          Step {step} of 5
+          Step {step} of 4
         </div>
       </div>
 
@@ -382,13 +392,6 @@ function OnboardingPage() {
               onSelect={(c: string) => setCategories(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c])}
               onNext={nextStep}
               onBack={prevStep}
-            />
-          )}
-          {step === 5 && <DataUpload key="5" onNext={nextStep} onBack={prevStep} />}
-          {step === 6 && (
-            <LoadingScreen
-              key="6"
-              onComplete={() => navigate('/dashboard', { state: { name, profileType, location: storeLocation, categories } })}
             />
           )}
         </AnimatePresence>
@@ -522,7 +525,11 @@ function DashboardPage() {
   const { state } = useLocation() as { state: any };
   const navigate = useNavigate();
   const name = state?.name || 'Store';
+  const mode: 'static' | 'dynamic' = state?.mode || 'static';
   const [showBanner, setShowBanner] = useState(!state?.loggedIn);
+
+  // Dynamic mode: subscribe to live WebSocket feed
+  const { connected, liveData } = useWebSocket(mode === 'dynamic');
 
   const data = [
     { name: 'Mon', sales: 400, forecast: 420 }, { name: 'Tue', sales: 300, forecast: 350 },
@@ -580,9 +587,20 @@ function DashboardPage() {
             <p className="text-gray-500 uppercase tracking-widest text-[10px] font-medium">Intelligence Overview</p>
           </div>
           <div className="flex items-center gap-4 text-xs font-medium">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-black text-white rounded-full">
-              <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" /> Live
-            </div>
+            {mode === 'dynamic' ? (
+              <div className={cn(
+                'flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors',
+                connected ? 'bg-black text-white' : 'bg-gray-100 text-gray-400'
+              )}>
+                <div className={cn('w-1.5 h-1.5 rounded-full', connected ? 'bg-white animate-pulse' : 'bg-gray-400')} />
+                {connected ? 'Live' : 'Connecting…'}
+                <Radio className="w-3 h-3 ml-0.5" />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-600 rounded-full">
+                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full" /> Static
+              </div>
+            )}
             <div className="hidden md:flex items-center gap-2 text-gray-500">
               <Calendar className="w-3 h-3" /> {new Date().toLocaleDateString()}
             </div>
@@ -741,7 +759,7 @@ function DashboardPage() {
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <div className="bg-white p-8 border border-black/5 rounded-3xl">
             <TrendingUp className="w-6 h-6 mb-4 text-green-500" />
             <div className="text-3xl font-serif mb-1">84%</div>
@@ -757,6 +775,16 @@ function DashboardPage() {
             <div className="text-3xl font-serif mb-1">4</div>
             <div className="text-[10px] uppercase tracking-widest text-gray-400">Supply Disruptions</div>
           </div>
+        </div>
+
+        {/* ── New Graph 1: SKU Risk Heatmap ─────────────────────────────── */}
+        <div className="mb-6">
+          <RiskHeatmap />
+        </div>
+
+        {/* ── New Graph 2: Demand Signal Breakdown ──────────────────────── */}
+        <div className="mb-12">
+          <SignalBreakdown />
         </div>
       </div>
     </motion.div>

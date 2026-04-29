@@ -79,7 +79,7 @@ Layer 7   →  Continuous Learning              Manager feedback loop · accurac
 
 <!-- Add your system architecture image below -->
 
-![XYRA System Architecture](image-1.png)
+![XYRA System Architecture](SystemArchitecture.png)
 
 ---
 
@@ -98,7 +98,7 @@ Layer 7   →  Continuous Learning              Manager feedback loop · accurac
 | GET | `/health` | Health check |
 
 ---
-
+<!-- 
 ## Project Structure
 
 ```
@@ -122,7 +122,7 @@ xyra/
 │   └── requirements.txt
 ├── vercel.json
 └── README.md
-```
+``` -->
 
 ---
 

@@ -151,15 +151,15 @@ def clean_csv(file_bytes: bytes, expected_cols: Dict[str, str] = None) -> Tuple[
         # Forward-fill date-dependent nulls
         df = df.sort_values('date')
         if 'units_sold' in df.columns:
-            df['units_sold'] = df.groupby('product_id')['units_sold'].fillna(method='ffill').fillna(0)
+            df['units_sold'] = df.groupby('product_id')['units_sold'].transform(lambda x: x.ffill()).fillna(0)
         if 'current_stock' in df.columns:
-            df['current_stock'] = df.groupby('product_id')['current_stock'].fillna(method='ffill').fillna(0)
+            df['current_stock'] = df.groupby('product_id')['current_stock'].transform(lambda x: x.ffill()).fillna(0)
 
         # Fill remaining nulls with category median or 0
         for col in ['units_sold', 'current_stock', 'price']:
             if col in df.columns:
                 if 'category' in df.columns:
-                    df[col] = df.groupby('category')[col].fillna(df.groupby('category')[col].median())
+                    df[col] = df.groupby('category')[col].transform(lambda x: x.fillna(x.median()))
                 df[col] = df[col].fillna(0)
 
         # Remove duplicates
