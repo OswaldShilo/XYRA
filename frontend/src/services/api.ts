@@ -169,4 +169,78 @@ export const api = {
 
   manualSync: () =>
     req<ApiResponse<unknown>>('GET', '/api/sync'),
+
+  // ── Analytics (static mode only) ─────────────────────────────────────────
+  getAnalyticsInventoryHealth: (sessionId: string) =>
+    req<ApiResponse<InventoryHealthRow[]>>(
+      'GET', `/session/${sessionId}/analytics/inventory-health`,
+    ),
+
+  getAnalyticsDemandPatterns: (sessionId: string) =>
+    req<ApiResponse<DemandPatternsData>>(
+      'GET', `/session/${sessionId}/analytics/demand-patterns`,
+    ),
+
+  getAnalyticsSpikeDetection: (sessionId: string) =>
+    req<ApiResponse<SpikeProduct[]>>(
+      'GET', `/session/${sessionId}/analytics/spike-detection`,
+    ),
+
+  getAnalyticsHistoricalComparison: (sessionId: string) =>
+    req<ApiResponse<HistoricalComparisonData>>(
+      'GET', `/session/${sessionId}/analytics/historical-comparison`,
+    ),
+
+  getAnalyticsForecastAccuracy: (sessionId: string) =>
+    req<ApiResponse<ForecastAccuracyRow[]>>(
+      'GET', `/session/${sessionId}/analytics/forecast-accuracy`,
+    ),
 };
+
+// ── Analytics response types ──────────────────────────────────────────────────
+export interface InventoryHealthRow {
+  sku: string;
+  category: string;
+  days_to_stockout: number;
+  risk_level: 'CRITICAL' | 'WARNING' | 'SAFE';
+  current_stock: number;
+}
+
+export interface DemandPatternsData {
+  daily: { date: string; units_sold: number }[];
+  by_dow: { day: string; avg_units: number }[];
+  by_category: { category: string; units_sold: number; pct: number }[];
+}
+
+export interface SpikeHistoryPoint {
+  date: string;
+  actual: number;
+}
+export interface SpikeForecastPoint {
+  date: string;
+  forecast: number;
+  lower: number;
+  upper: number;
+}
+export interface SpikeProduct {
+  product_id: string;
+  spike_score: number;
+  is_spike: boolean;
+  method: string;
+  history: SpikeHistoryPoint[];
+  forecast: SpikeForecastPoint[];
+}
+
+export interface HistoricalComparisonData {
+  monthly: { month: string; units_sold: number }[];
+  mom: { month: string; mom_pct: number | null }[];
+  yoy: Record<string, unknown>[];
+}
+
+export interface ForecastAccuracyRow {
+  product_id: string;
+  category: string;
+  mape: number;
+  accuracy_pct: number;
+  method: string;
+}

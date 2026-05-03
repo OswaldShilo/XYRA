@@ -14,7 +14,10 @@ import {
 import ModeSelectPage from './pages/ModeSelect';
 import { RiskHeatmap } from './components/ui/RiskHeatmap';
 import { SignalBreakdown } from './components/ui/SignalBreakdown';
+import { AnalyticsSection } from './components/AnalyticsSection';
 import { useWebSocket } from './hooks/useWebSocket';
+import { supabase } from './lib/supabase';
+import type { Profile } from './lib/supabase';
 
 // ─── Root Router ────────────────────────────────────────────────────────────
 
@@ -192,14 +195,54 @@ function AuthPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.SyntheticEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
-    if (mode === 'signup') {
-      navigate('/onboarding');
-    } else {
-      navigate('/dashboard', { state: { name: 'My Store' } });
+    setAuthError(null);
+    setLoading(true);
+
+    try {
+      if (mode === 'signup') {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        navigate('/onboarding');
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+
+        // Check if user already completed onboarding
+        const userId = data.user?.id;
+        if (userId) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single<Profile>();
+
+          if (profile) {
+            // Returning user — skip onboarding, go to mode select
+            navigate('/mode-select', {
+              state: {
+                name: profile.store_name,
+                profileType: profile.store_type,
+                location: profile.pincode,
+                categories: profile.categories,
+              },
+            });
+            return;
+          }
+        }
+
+        // New user signed in without profile — send to onboarding
+        navigate('/onboarding');
+      }
+    } catch (err: unknown) {
+      setAuthError(err instanceof Error ? err.message : 'Authentication failed.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -289,13 +332,27 @@ function AuthPage() {
             </div>
           </div>
 
+          {authError && (
+            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-500">
+              {authError}
+            </div>
+          )}
+
           <motion.button
             type="submit"
+            disabled={loading}
             whileHover={{ backgroundColor: '#f97316', color: '#fff' }}
             whileTap={{ scale: 0.97 }}
-            className="w-full py-3.5 bg-[#FFB38E] text-black font-serif italic text-lg rounded-xl transition-colors duration-200 mb-4"
+            className="w-full py-3.5 bg-[#FFB38E] text-black font-serif italic text-lg rounded-xl transition-colors duration-200 mb-4 disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {mode === 'signup' ? 'Create new account' : 'Sign in'}
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border border-black/30 border-t-black rounded-full animate-spin" />
+                {mode === 'signup' ? 'Creating account…' : 'Signing in…'}
+              </>
+            ) : (
+              mode === 'signup' ? 'Create new account' : 'Sign in'
+            )}
           </motion.button>
 
           <p className="text-center text-sm text-gray-400">
@@ -338,8 +395,22 @@ function OnboardingPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const navigate = useNavigate();
 
-  const nextStep = () => {
+  const nextStep = async () => {
     if (step === 4) {
+      // Persist profile to Supabase (best-effort — don't block navigation on failure)
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('profiles').upsert({
+            id: user.id,
+            store_name: name,
+            store_type: profileType,
+            pincode: storeLocation.replace(/[^0-9]/g, '') || storeLocation,
+            categories,
+          });
+        }
+      } catch (_) { /* non-critical */ }
+
       navigate('/mode-select', { state: { name, profileType, location: storeLocation, categories } });
       return;
     }
@@ -783,9 +854,16 @@ function DashboardPage() {
         </div>
 
         {/* ── New Graph 2: Demand Signal Breakdown ──────────────────────── */}
-        <div className="mb-12">
+        <div className="mb-6">
           <SignalBreakdown />
         </div>
+
+        {/* ── Analytics Section (static mode + session only) ───────────── */}
+        {mode === 'static' && state?.sessionId && (
+          <div className="mb-12">
+            <AnalyticsSection sessionId={state.sessionId} />
+          </div>
+        )}
       </div>
     </motion.div>
   );
