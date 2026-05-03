@@ -1,5 +1,7 @@
 .claude
 
+assets/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -41,3 +43,6 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.bak
+
+
+.env

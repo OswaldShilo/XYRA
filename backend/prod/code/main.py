@@ -31,6 +31,7 @@ from layers.layer6_output import (
     generate_briefing, generate_chart_png,
 )
 from layers.layer7_learning import record_feedback, get_learning_stats, get_learned_multipliers
+from layers.layer_analytics import compute_all_analytics
 
 # ── Dynamic mode imports ───────────────────────────────────────────────────────
 from dynamic.digital_twin import SKUDigitalTwin, twin_registry
@@ -110,6 +111,8 @@ def _run_pipeline(
     if df.empty:
         raise ValueError(f"CSV cleaning failed: {clean_report.get('errors', [])}")
 
+    df_cleaned = df.copy()  # snapshot before DSP — used for analytics
+
     # L1.5 — filter + decompose
     df, dsp_report = filter_noise(df)
     df = simple_decompose(df)
@@ -152,6 +155,9 @@ def _run_pipeline(
             fc2["last_date"] = fc2["last_date"].isoformat()
         serialisable_forecasts[pid] = fc2
 
+    # Analytics layer — runs on pre-DSP cleaned data
+    analytics = compute_all_analytics(df_cleaned, classifications, forecasts)
+
     return {
         "store_name": store_name,
         "pincode": pincode,
@@ -167,6 +173,7 @@ def _run_pipeline(
         "chart": chart,
         "event_data": event_data,
         "weather_data": weather_data,
+        "analytics": analytics,
     }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -240,6 +247,36 @@ def get_forecast(session_id: str, product_id: str):
 def get_chart(session_id: str):
     s = _get_session(session_id)
     return format_json_response({"chart": s["chart"]})
+
+
+@app.get("/session/{session_id}/analytics/inventory-health")
+def analytics_inventory_health(session_id: str):
+    s = _get_session(session_id)
+    return format_json_response(s.get("analytics", {}).get("inventory_health", []))
+
+
+@app.get("/session/{session_id}/analytics/demand-patterns")
+def analytics_demand_patterns(session_id: str):
+    s = _get_session(session_id)
+    return format_json_response(s.get("analytics", {}).get("demand_patterns", {}))
+
+
+@app.get("/session/{session_id}/analytics/spike-detection")
+def analytics_spike_detection(session_id: str):
+    s = _get_session(session_id)
+    return format_json_response(s.get("analytics", {}).get("spike_detection", []))
+
+
+@app.get("/session/{session_id}/analytics/historical-comparison")
+def analytics_historical_comparison(session_id: str):
+    s = _get_session(session_id)
+    return format_json_response(s.get("analytics", {}).get("historical_comparison", {}))
+
+
+@app.get("/session/{session_id}/analytics/forecast-accuracy")
+def analytics_forecast_accuracy(session_id: str):
+    s = _get_session(session_id)
+    return format_json_response(s.get("analytics", {}).get("forecast_accuracy", []))
 
 
 @app.get("/sessions")
